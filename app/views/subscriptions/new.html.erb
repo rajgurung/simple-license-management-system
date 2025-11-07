@@ -1,0 +1,45 @@
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+  <div class="mb-6">
+    <%= link_to "← Back", account_subscriptions_path(@account), class: "text-blue-600 hover:text-blue-800" %>
+  </div>
+
+  <h1 class="text-2xl font-bold text-gray-900 mb-6">Create Subscription for <%= @account.name %></h1>
+
+  <%= form_with model: [@account, @subscription], class: "space-y-6" do |f| %>
+    <% if @subscription.errors.any? %>
+      <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <ul>
+          <% @subscription.errors.full_messages.each do |message| %>
+            <li><%= message %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <div>
+      <%= f.label :product_id, "Product", class: "block text-sm font-medium text-gray-700" %>
+      <%= f.select :product_id, options_from_collection_for_select(@products, :id, :name),
+          { prompt: "Select a product" },
+          class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" %>
+    </div>
+
+    <div>
+      <%= f.label :number_of_licenses, class: "block text-sm font-medium text-gray-700" %>
+      <%= f.number_field :number_of_licenses, min: 1, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" %>
+    </div>
+
+    <div>
+      <%= f.label :issued_at, class: "block text-sm font-medium text-gray-700" %>
+      <%= f.datetime_field :issued_at, value: Time.current.strftime("%Y-%m-%dT%H:%M"), class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" %>
+    </div>
+
+    <div>
+      <%= f.label :expires_at, class: "block text-sm font-medium text-gray-700" %>
+      <%= f.datetime_field :expires_at, value: 1.year.from_now.strftime("%Y-%m-%dT%H:%M"), class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" %>
+    </div>
+
+    <div>
+      <%= f.submit "Create Subscription", class: "w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" %>
+    </div>
+  <% end %>
+</div>

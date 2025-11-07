@@ -1,0 +1,74 @@
+<div class="max-w-6xl mx-auto">
+  <div class="mb-6">
+    <%= link_to "← Back to Account", account_path(@account), class: "text-blue-600 hover:text-blue-800 font-medium" %>
+  </div>
+
+  <div class="flex justify-between items-center mb-6">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900"><%= @account.name %> - Subscriptions</h1>
+      <p class="text-gray-600 mt-1">Manage product subscriptions and license pools</p>
+    </div>
+    <%= link_to "Add Subscription", new_account_subscription_path(@account), class: "bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium" %>
+  </div>
+
+  <% if @subscriptions.any? %>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <% @subscriptions.each do |subscription| %>
+        <div class="bg-white shadow rounded-lg p-6 border-l-4 <%= subscription.active? ? 'border-green-500' : subscription.in_grace_period? ? 'border-yellow-500' : 'border-red-500' %>">
+          <div class="flex justify-between items-start mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">
+              <%= subscription.product.name %>
+            </h3>
+            <% if subscription.active? %>
+              <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                Active
+              </span>
+            <% elsif subscription.in_grace_period? %>
+              <span class="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                Grace Period
+              </span>
+            <% else %>
+              <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
+                Expired
+              </span>
+            <% end %>
+          </div>
+
+          <div class="space-y-3">
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-600">Total Licenses:</span>
+              <span class="font-semibold text-gray-900"><%= subscription.number_of_licenses %></span>
+            </div>
+
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-600">Issued:</span>
+              <span class="text-gray-900"><%= subscription.issued_at.strftime("%b %d, %Y") %></span>
+            </div>
+
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-600">Expires:</span>
+              <span class="<%= subscription.active? ? 'text-gray-900' : 'text-red-600 font-medium' %>">
+                <%= subscription.expires_at.strftime("%b %d, %Y") %>
+              </span>
+            </div>
+
+            <% if subscription.active? %>
+              <div class="pt-3 border-t">
+                <%= link_to "Manage Licenses", account_product_license_assignments_path(@account, subscription.product), class: "block w-full text-center bg-blue-50 text-blue-600 px-4 py-2 rounded hover:bg-blue-100 transition font-medium text-sm" %>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <div class="bg-white shadow rounded-lg p-12 text-center">
+      <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+      <h3 class="text-lg font-medium text-gray-900 mb-2">No subscriptions yet</h3>
+      <p class="text-gray-600 mb-6">Create a subscription to allocate product licenses to this account.</p>
+      <%= link_to "Create Subscription", new_account_subscription_path(@account), class: "inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium" %>
+    </div>
+  <% end %>
+</div>
