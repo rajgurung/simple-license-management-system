@@ -116,6 +116,26 @@ RSpec.describe 'LicenseAssignments', type: :request do
         expect(LicenseAssignment.count).to eq(2)
         expect(flash[:notice]).to include('Successfully assigned')
       end
+
+      it 'shows no capacity alert when zero capacity available' do
+        # Fill all 10 licenses
+        10.times do |i|
+          u = User.create(account: account, name: "Existing #{i}", email: "existing#{i}@test.com")
+          LicenseAssignment.create(account: account, product: product, user: u)
+        end
+
+        initial_count = LicenseAssignment.count
+
+        # Try to assign 2 more users with partial_fill mode
+        post bulk_assign_account_product_license_assignments_path(account, product), params: {
+          user_ids: [user1.id, user2.id],
+          mode: 'partial_fill'
+        }
+
+        expect(response).to redirect_to(account_product_license_assignments_path(account, product))
+        expect(flash[:alert]).to include('No capacity available')
+        expect(LicenseAssignment.count).to eq(initial_count)  # No new assignments created
+      end
     end
 
     context 'with empty user_ids' do
