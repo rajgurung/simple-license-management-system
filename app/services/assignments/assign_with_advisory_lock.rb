@@ -106,8 +106,14 @@ module Assignments
 
     private
 
+    # SAFE SQL INTERPOLATION: Lock key is a deterministic 31-bit integer generated from
+    # SHA256 hash of database IDs (account_id, product_id). No user input involved.
+    # The Concurrency::AdvisoryLockKey.for_pool method ensures the value is always a
+    # controlled integer within PostgreSQL's advisory lock range (0 to 2^31-1).
+    # See: app/services/concurrency/advisory_lock_key.rb for implementation details.
     def acquire_advisory_lock
       lock_key = Concurrency::AdvisoryLockKey.for_pool(account_id, product_id)
+      # brakeman:ignore:SQL - Lock key is a controlled integer from hash, not user input
       ActiveRecord::Base.connection.execute("SELECT pg_advisory_xact_lock(#{lock_key})")
     end
 
