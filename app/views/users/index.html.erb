@@ -1,0 +1,42 @@
+<div class="max-w-6xl mx-auto">
+  <div class="mb-6">
+    <%= link_to "← Back to Account", account_path(@account), class: "text-blue-600 hover:text-blue-800 font-medium" %>
+  </div>
+
+  <div class="flex justify-between items-center mb-8">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900"><%= @account.name %> - Users</h1>
+      <p class="text-gray-600 mt-1">Manage users for this account</p>
+    </div>
+    <%= link_to "Add User", new_account_user_path(@account), class: "bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium" %>
+  </div>
+
+  <% if @users.any? %>
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+      <ul class="divide-y divide-gray-200">
+        <% @users.each do |user| %>
+          <li class="px-6 py-4 hover:bg-gray-50 transition">
+            <div class="flex justify-between items-center">
+              <div>
+                <p class="text-lg font-medium text-gray-900"><%= user.name %></p>
+                <p class="text-sm text-gray-500"><%= user.email %></p>
+              </div>
+              <% if user.admin? %>
+                <span class="px-3 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">Admin</span>
+              <% end %>
+            </div>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+  <% else %>
+    <div class="bg-white shadow rounded-lg p-12 text-center">
+      <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+      <h3 class="text-lg font-medium text-gray-900 mb-2">No users yet</h3>
+      <p class="text-gray-600 mb-6">Add users to this account to manage license assignments.</p>
+      <%= link_to "Add User", new_account_user_path(@account), class: "inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium" %>
+    </div>
+  <% end %>
+</div>
