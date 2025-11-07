@@ -1,0 +1,138 @@
+<div class="container mx-auto px-4 py-8">
+  <div class="mb-6">
+    <%= link_to "← Back to Accounts", accounts_path, class: "text-blue-600 hover:text-blue-800" %>
+  </div>
+
+  <h1 class="text-3xl font-bold text-gray-900 mb-6">Account: <%= @account.name %></h1>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white p-6 rounded-lg shadow">
+      <h3 class="text-lg font-semibold mb-2">Users</h3>
+      <p class="text-3xl font-bold text-blue-600"><%= @account.users.count %></p>
+      <%= link_to "Manage Users", account_users_path(@account), class: "text-sm text-blue-600 hover:text-blue-800 mt-2 inline-block" %>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow">
+      <h3 class="text-lg font-semibold mb-2">Active Subscriptions</h3>
+      <p class="text-3xl font-bold text-green-600"><%= @subscriptions.count %></p>
+      <%= link_to "Manage Subscriptions", account_subscriptions_path(@account), class: "text-sm text-blue-600 hover:text-blue-800 mt-2 inline-block" %>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow">
+      <h3 class="text-lg font-semibold mb-4">License Pool</h3>
+      <%
+        # Use precomputed values from controller
+        total_licenses = @total_licenses_count
+        used_licenses = @used_licenses_count
+        available_licenses = total_licenses - used_licenses
+        percentage_used = total_licenses > 0 ? (used_licenses.to_f / total_licenses * 100) : 0
+
+        status_color = if available_licenses > total_licenses * 0.5
+          "text-green-600"
+        elsif available_licenses > total_licenses * 0.2
+          "text-yellow-600"
+        else
+          "text-red-600"
+        end
+      %>
+      <p class="text-3xl font-bold <%= status_color %> mb-3"><%= used_licenses %>/<%= total_licenses %></p>
+      <div class="text-sm space-y-1">
+        <div class="flex justify-between">
+          <span class="text-gray-600">Used:</span>
+          <span class="font-medium"><%= used_licenses %></span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-600">Available:</span>
+          <span class="font-medium"><%= available_licenses %></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-2xl font-bold text-gray-900">Active Subscriptions</h2>
+    <div class="flex gap-3">
+      <%= link_to "Manage Users", account_users_path(@account), class: "bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition font-medium" %>
+      <%= link_to "Add Subscription", new_account_subscription_path(@account), class: "bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium" %>
+    </div>
+  </div>
+
+  <% if @subscriptions.any? %>
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+      <ul class="divide-y divide-gray-200">
+        <% @subscriptions.each do |subscription| %>
+          <li class="px-6 py-4 hover:bg-gray-50 transition">
+            <div class="flex justify-between items-center">
+              <div>
+                <div class="flex items-center gap-2">
+                  <p class="text-lg font-medium text-gray-900"><%= subscription.product.name %></p>
+                  <% if subscription.expiring_soon? %>
+                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                      ⚠️ Expiring in <%= subscription.days_until_expiry %> <%= 'day'.pluralize(subscription.days_until_expiry) %>
+                    </span>
+                  <% end %>
+                </div>
+                <p class="text-sm text-gray-500">Expires: <%= subscription.expires_at.strftime("%B %d, %Y") %></p>
+              </div>
+              <div class="flex items-center gap-4">
+                <%
+                  # Use precomputed capacity from controller to avoid N+1
+                  capacity = @subscription_capacities[subscription.product_id] || { used: 0, total: 0 }
+                  used_for_product = capacity[:used]
+                  total_for_product = capacity[:total]
+                %>
+                <span class="text-sm text-gray-600 font-medium"><%= used_for_product %>/<%= total_for_product %> licenses</span>
+                <%= link_to "Manage Assignments",
+                    account_product_license_assignments_path(@account, subscription.product),
+                    class: "bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition" %>
+              </div>
+            </div>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+  <% else %>
+    <div class="bg-white shadow rounded-lg p-12 text-center">
+      <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+      <h3 class="text-lg font-medium text-gray-900 mb-2">No subscriptions yet</h3>
+      <p class="text-gray-600 mb-6">Create a subscription to allocate product licenses to this account.</p>
+      <%= link_to "Create First Subscription", new_account_subscription_path(@account), class: "inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium" %>
+    </div>
+  <% end %>
+
+  <!-- Expired Subscriptions Section -->
+  <% if @expired_subscriptions.any? %>
+    <div class="mt-12">
+      <h2 class="text-2xl font-bold text-gray-900 mb-4">Expired Subscriptions</h2>
+      <div class="bg-white shadow overflow-hidden sm:rounded-lg border-l-4 border-red-500">
+        <ul class="divide-y divide-gray-200">
+          <% @expired_subscriptions.each do |subscription| %>
+            <li class="px-6 py-4 bg-red-50 hover:bg-red-100 transition">
+              <div class="flex justify-between items-center">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <p class="text-lg font-medium text-gray-900"><%= subscription.product.name %></p>
+                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                      Expired
+                    </span>
+                  </div>
+                  <p class="text-sm text-red-600 font-medium">Expired: <%= subscription.expires_at.strftime("%B %d, %Y") %></p>
+                </div>
+                <div class="flex items-center gap-4">
+                  <%
+                    # For expired subscriptions, use cached product assignment counts
+                    used_for_product = @product_assignment_counts[subscription.product_id] || 0
+                    total_for_product = subscription.number_of_licenses
+                  %>
+                  <span class="text-sm text-gray-600 font-medium"><%= used_for_product %>/<%= total_for_product %> licenses</span>
+                </div>
+              </div>
+            </li>
+          <% end %>
+        </ul>
+      </div>
+    </div>
+  <% end %>
+</div>
