@@ -1,5 +1,10 @@
 # License Management System
 
+![CI](https://github.com/rajgurung/simple-license-management-system/workflows/CI/badge.svg)
+![Ruby](https://img.shields.io/badge/Ruby-3.4.2-red.svg)
+![Rails](https://img.shields.io/badge/Rails-8.0.4-red.svg)
+![Coverage](https://img.shields.io/badge/Coverage-97%25-brightgreen.svg)
+
 A Ruby on Rails application for managing software license assignments with PostgreSQL advisory locks for concurrency-safe operations.
 
 ## Live Demo
