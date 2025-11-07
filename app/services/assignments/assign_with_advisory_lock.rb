@@ -1,9 +1,56 @@
 require_relative 'no_capacity_error'
 
 module Assignments
+  # Assigns licenses to users with concurrency-safe operations using PostgreSQL advisory locks.
+  #
+  # This service ensures atomic license assignments across multiple application servers by:
+  # 1. Acquiring a PostgreSQL advisory lock for the account+product pool
+  # 2. Filtering out users who already have licenses (idempotency)
+  # 3. Checking available capacity against active subscriptions
+  # 4. Performing bulk license assignments within a database transaction
+  #
+  # The service supports two assignment modes:
+  # - :all_or_nothing - Assigns all requested licenses or rolls back (strict capacity enforcement)
+  # - :partial_fill - Assigns up to available capacity, returns overflow users
+  #
+  # @example Assign licenses in all-or-nothing mode
+  #   service = AssignWithAdvisoryLock.new(
+  #     account_id: 1,
+  #     product_id: 2,
+  #     user_ids: [10, 11, 12],
+  #     mode: :all_or_nothing
+  #   )
+  #   result = service.call
+  #   # => { assigned: [10, 11, 12], overflow: [], outcome: 'full' }
+  #
+  # @example Assign licenses with partial fill mode
+  #   service = AssignWithAdvisoryLock.new(
+  #     account_id: 1,
+  #     product_id: 2,
+  #     user_ids: [10, 11, 12, 13, 14],
+  #     mode: :partial_fill
+  #   )
+  #   result = service.call  # Only 3 licenses available
+  #   # => { assigned: [10, 11, 12], overflow: [13, 14], outcome: 'partial' }
+  #
+  # @raise [NoCapacityError] In :all_or_nothing mode when insufficient licenses available
   class AssignWithAdvisoryLock
     attr_reader :account_id, :product_id, :user_ids, :mode
 
+    # Initializes the license assignment service.
+    #
+    # @param account_id [Integer] The account ID requesting licenses
+    # @param product_id [Integer] The product ID for which to assign licenses
+    # @param user_ids [Integer, Array<Integer>] Single user ID or array of user IDs to assign licenses to
+    # @param mode [Symbol] Assignment mode - :all_or_nothing (default) or :partial_fill
+    #
+    # @example
+    #   AssignWithAdvisoryLock.new(
+    #     account_id: 1,
+    #     product_id: 2,
+    #     user_ids: [10, 11],
+    #     mode: :all_or_nothing
+    #   )
     def initialize(account_id:, product_id:, user_ids:, mode: :all_or_nothing)
       @account_id = account_id
       @product_id = product_id
@@ -11,6 +58,33 @@ module Assignments
       @mode = mode.to_sym
     end
 
+    # Executes the license assignment operation.
+    #
+    # This method:
+    # 1. Acquires a PostgreSQL advisory lock to prevent race conditions
+    # 2. Filters out users who already hold licenses (idempotent operation)
+    # 3. Checks available capacity from active subscriptions
+    # 4. Assigns licenses based on the configured mode
+    # 5. Emits structured logs for observability
+    #
+    # @return [Hash] Assignment result with keys:
+    #   - :assigned [Array<Integer>] User IDs that received licenses
+    #   - :overflow [Array<Integer>] User IDs that couldn't be assigned (partial_fill mode only)
+    #   - :outcome [String] Result status: 'full', 'partial', or 'no_capacity'
+    #
+    # @raise [NoCapacityError] In :all_or_nothing mode when requested > available
+    #
+    # @example Successful assignment
+    #   result = service.call
+    #   result[:assigned]  # => [10, 11, 12]
+    #   result[:overflow]  # => []
+    #   result[:outcome]   # => 'full'
+    #
+    # @example Partial assignment
+    #   result = service.call  # mode: :partial_fill
+    #   result[:assigned]  # => [10, 11]
+    #   result[:overflow]  # => [12]
+    #   result[:outcome]   # => 'partial'
     def call
       result = nil
 
