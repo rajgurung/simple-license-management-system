@@ -188,6 +188,126 @@ RSpec.describe 'LicenseAssignments', type: :request do
     end
   end
 
+  describe 'Edge case: All users already have licenses (idempotent assignment)' do
+    it 'shows notice when all requested users already have licenses assigned' do
+      # Pre-assign licenses to both users
+      LicenseAssignment.create(account: account, product: product, user: user1)
+      LicenseAssignment.create(account: account, product: product, user: user2)
+
+      initial_count = LicenseAssignment.count
+
+      post bulk_assign_account_product_license_assignments_path(account, product), params: {
+        user_ids: [user1.id, user2.id],
+        mode: 'all_or_nothing'
+      }
+
+      expect(response).to redirect_to(account_product_license_assignments_path(account, product))
+      expect(flash[:notice]).to include('already have licenses assigned')
+      expect(LicenseAssignment.count).to eq(initial_count)  # No new assignments created
+    end
+
+    it 'handles partial already-assigned scenario correctly' do
+      # Pre-assign license to user1 only
+      LicenseAssignment.create(account: account, product: product, user: user1)
+
+      post bulk_assign_account_product_license_assignments_path(account, product), params: {
+        user_ids: [user1.id, user2.id],
+        mode: 'all_or_nothing'
+      }
+
+      expect(response).to redirect_to(account_product_license_assignments_path(account, product))
+      expect(flash[:notice]).to include('Successfully assigned 1')  # Only user2 assigned
+      expect(LicenseAssignment.where(user: user1).count).to eq(1)  # Still just one assignment for user1
+      expect(LicenseAssignment.where(user: user2).count).to eq(1)  # New assignment for user2
+    end
+  end
+
+  describe 'Edge case: Partial fill mode with overflow details' do
+    it 'shows specific overflow details when some users cannot be assigned' do
+      # Use 8 of 10 licenses
+      8.times do |i|
+        u = User.create(account: account, name: "Existing #{i}", email: "existing#{i}@test.com")
+        LicenseAssignment.create(account: account, product: product, user: u)
+      end
+
+      # Try to assign 3 users (only 2 should succeed due to capacity limit)
+      post bulk_assign_account_product_license_assignments_path(account, product), params: {
+        user_ids: [user1.id, user2.id, user3.id],
+        mode: 'partial_fill'
+      }
+
+      expect(response).to redirect_to(account_product_license_assignments_path(account, product))
+      expect(flash[:notice]).to match(/Partially assigned 2 licenses/)
+      expect(flash[:notice]).to match(/1 could not be assigned due to capacity/)
+      expect(LicenseAssignment.count).to eq(10)  # 8 existing + 2 new = 10 total
+    end
+  end
+
+  describe 'Authorization: require_admin before filter' do
+    context 'when user is not logged in' do
+      before do
+        delete logout_path  # Log out the admin
+      end
+
+      it 'redirects to login for index action' do
+        get account_product_license_assignments_path(account, product)
+        expect(response).to redirect_to(login_path)
+        expect(flash[:alert]).to include('Please log in as admin')
+      end
+
+      it 'redirects to login for bulk_assign action' do
+        post bulk_assign_account_product_license_assignments_path(account, product), params: {
+          user_ids: [user1.id]
+        }
+        expect(response).to redirect_to(login_path)
+        expect(flash[:alert]).to include('Please log in as admin')
+      end
+
+      it 'redirects to login for bulk_unassign action' do
+        post bulk_unassign_account_product_license_assignments_path(account, product), params: {
+          user_ids: [user1.id]
+        }
+        expect(response).to redirect_to(login_path)
+        expect(flash[:alert]).to include('Please log in as admin')
+      end
+    end
+
+    context 'when user is logged in but not an admin' do
+      let(:regular_user) do
+        User.create(
+          name: 'Regular User',
+          email: 'regular@test.com',
+          admin: false,
+          username: 'regular',
+          password: 'password123',
+          account: account
+        )
+      end
+
+      before do
+        delete logout_path  # Log out the admin
+        post login_path, params: {
+          username: 'regular',
+          password: 'password123'
+        }
+      end
+
+      it 'redirects to login when accessing license assignments' do
+        get account_product_license_assignments_path(account, product)
+        expect(response).to redirect_to(login_path)
+        expect(flash[:alert]).to include('Please log in as admin')
+      end
+
+      it 'redirects to login when attempting bulk_assign' do
+        post bulk_assign_account_product_license_assignments_path(account, product), params: {
+          user_ids: [user1.id]
+        }
+        expect(response).to redirect_to(login_path)
+        expect(flash[:alert]).to include('Please log in as admin')
+      end
+    end
+  end
+
   describe 'Expired subscription handling' do
     context 'when subscription has expired' do
       before do
