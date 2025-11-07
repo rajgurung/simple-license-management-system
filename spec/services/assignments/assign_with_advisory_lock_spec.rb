@@ -158,6 +158,19 @@ RSpec.describe Assignments::AssignWithAdvisoryLock do
         expect(LicenseAssignment.where(user: user1).count).to eq(1)  # user1 still has only 1
       end
     end
+
+    describe 'input validation' do
+      it 'raises ArgumentError for unknown mode' do
+        service = described_class.new(
+          account_id: account.id,
+          product_id: product.id,
+          user_ids: [user1.id],
+          mode: :invalid_mode
+        )
+
+        expect { service.call }.to raise_error(ArgumentError, 'Unknown mode: invalid_mode')
+      end
+    end
   end
 
   context 'multiple subscriptions' do
