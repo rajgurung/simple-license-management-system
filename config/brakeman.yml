@@ -1,0 +1,39 @@
+# Brakeman configuration for CI/CD pipeline
+# Documentation: https://brakemanscanner.org/docs/options/
+
+# Ensure all ignored warnings have notes explaining why
+:ensure_ignore_notes: true
+
+# Fail if there are obsolete entries in brakeman.ignore
+:ensure_no_obsolete_ignore_entries: true
+
+# Exit code behavior for CI/CD
+# Exit with error code if warnings are found (default: true)
+:exit_on_warn: true
+
+# Output format (options: text, html, json, markdown, csv, tabs)
+# For CI/CD, 'text' is most readable in logs
+:output_format: text
+
+# Minimum confidence level to report (High, Medium, Weak)
+# Set to 'Medium' to catch more potential issues
+:min_confidence: 2
+
+# Additional checks
+:check_arguments: true
+:interprocedural: true
+
+# Paths to scan (default is app/)
+:app_path: .
+
+# Paths to skip (Rails defaults are usually sufficient)
+# Uncomment and customize if needed:
+# :skip_files:
+#   - vendor/
+#   - node_modules/
+
+# Report all warnings, even if not in user code
+# :report_direct: true
+
+# Parallel processing for faster scans
+# :parallel_checks: true

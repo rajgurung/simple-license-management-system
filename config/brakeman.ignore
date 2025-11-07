@@ -1,0 +1,29 @@
+{
+  "ignored_warnings": [
+    {
+      "warning_type": "SQL Injection",
+      "warning_code": 0,
+      "fingerprint": "43b836bac5a4fc7b1c2a363c82c16ca1979708444267dcc6dea2eedbdbe0fb01",
+      "check_name": "SQL",
+      "message": "Possible SQL injection",
+      "file": "app/services/assignments/assign_with_advisory_lock.rb",
+      "line": 191,
+      "link": "https://brakemanscanner.org/docs/warning_types/sql_injection/",
+      "code": "ActiveRecord::Base.connection.execute(\"SELECT pg_advisory_xact_lock(#{Concurrency::AdvisoryLockKey.for_pool(account_id, product_id)})\")",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "Assignments::AssignWithAdvisoryLock",
+        "method": "acquire_advisory_lock"
+      },
+      "user_input": "Concurrency::AdvisoryLockKey.for_pool(account_id, product_id)",
+      "confidence": "Medium",
+      "cwe_id": [
+        89
+      ],
+      "note": "False positive: The lock key is a deterministic 31-bit integer generated from SHA256 hash (see app/services/concurrency/advisory_lock_key.rb). It cannot be influenced by user input and is always within PostgreSQL's advisory lock range (0 to 2^31-1). This is required for PostgreSQL advisory lock functionality."
+    }
+  ],
+  "updated": "2025-11-07 11:10:19 +0000",
+  "brakeman_version": "7.1.1"
+}
