@@ -2,6 +2,12 @@
 
 A Ruby on Rails application for managing software license assignments with PostgreSQL advisory locks for concurrency-safe operations.
 
+## Live Demo
+
+- **URL**: https://vlex-licensing.up.railway.app/login
+- **Username**: admin
+- **Password**: AdminPassw0rd!
+
 ## Table of Contents
 
 - [Features](#features)
@@ -14,9 +20,14 @@ A Ruby on Rails application for managing software license assignments with Postg
   - [PostgreSQL Advisory Locks for Concurrency Control](#postgresql-advisory-locks-for-concurrency-control)
   - [Expiration Handling](#expiration-handling)
   - [Assignment Modes](#assignment-modes)
-- [Scaling Strategies for High Throughput](#scaling-strategies-for-high-throughput)
+- [Current Implementation](#current-implementation)
+  - [Concurrency Control](#concurrency-control)
+  - [Request Processing](#request-processing)
+  - [Performance Characteristics](#performance-characteristics)
+- [Future Scaling Options](#future-scaling-options)
   - [Alternative Concurrency Approach: FOR UPDATE SKIP LOCKED](#alternative-concurrency-approach-for-update-skip-locked)
   - [Queue Systems for Async Processing](#queue-systems-for-async-processing)
+  - [Migration Strategy](#migration-strategy)
 - [Key Models](#key-models)
 - [Testing](#testing)
 - [Observability](#observability)
@@ -290,24 +301,40 @@ The service supports two assignment strategies:
 - **`:all_or_nothing`** - Strict capacity enforcement. Rollback entire transaction if insufficient licenses available.
 - **`:partial_fill`** - Assign up to available capacity, return overflow users for handling.
 
-## Scaling Strategies for High Throughput
+## Current Implementation
 
-The current architecture is optimized for correctness and simplicity. For applications requiring extremely high throughput (e.g., 10,000+ requests/second), consider these scaling strategies:
+### Concurrency Control
+The system uses **PostgreSQL Advisory Locks** for concurrency-safe license assignments:
+
+- **Pool-level locking**: Locks entire account+product pool during assignment
+- **Cross-server coordination**: Works reliably across multiple application servers
+- **Automatic cleanup**: Transaction-level locks (`pg_advisory_xact_lock`) auto-release on commit/rollback
+- **Performance**: Lock acquisition ~1.3ms, total assignment ~15ms
+- **Suitable for**: Moderate concurrency (100s of concurrent requests per pool)
+
+### Request Processing
+The system uses **synchronous HTTP request/response**:
+
+- Client waits for assignment to complete (~15ms total)
+- Immediate feedback on success/failure
+- Simple architecture with no additional infrastructure
+- Works well for interactive web applications
+
+### Performance Characteristics
+- **Throughput**: Handles hundreds of concurrent requests per account+product pool
+- **Latency**: ~15ms per license assignment operation
+- **Contention**: Only occurs when multiple requests target the same account+product combination
+- **Isolation**: Different products/accounts process concurrently without blocking
+
+## Future Scaling Options
+
+For applications requiring extremely high throughput (e.g., 10,000+ requests/second), consider these scaling strategies:
 
 ### Alternative Concurrency Approach: FOR UPDATE SKIP LOCKED
 
-**Current Approach:** Pool-level locking with PostgreSQL advisory locks
-- Locks entire account+product pool during assignment
-- Simple, reliable, works across all app servers
-- Suitable for moderate concurrency (100s of concurrent requests)
+Instead of pool-level advisory locks, use row-level locking with `FOR UPDATE SKIP LOCKED`:
 
-**Alternative Approach:** Row-level locking with `FOR UPDATE SKIP LOCKED`
-- Locks individual license records instead of entire pool
-- Higher concurrency potential (lock contention only on specific rows)
-- More complex implementation (requires queue table for available licenses)
-
-**How FOR UPDATE SKIP LOCKED Works:**
-
+**How it works:**
 ```ruby
 # Attempt to claim available license slots
 available_licenses = Subscription
@@ -324,6 +351,7 @@ available_licenses = Subscription
 - Multiple transactions can assign licenses concurrently (less blocking)
 - Failed transactions don't block others (SKIP LOCKED continues past locked rows)
 - Better throughput under extreme concurrency
+- Locks individual license records instead of entire pool
 
 **Trade-offs:**
 - More complex query logic
@@ -331,7 +359,7 @@ available_licenses = Subscription
 - PostgreSQL 9.5+ required
 - Potential for partial failures if not enough unlocked rows available
 
-**When to Migrate:**
+**When to migrate:**
 - Observing frequent lock contention (check `pg_stat_activity` for waiting locks)
 - Need to support 1,000+ concurrent assignment requests to same pool
 - Willing to accept additional implementation complexity
@@ -342,17 +370,9 @@ available_licenses = Subscription
 
 ### Queue Systems for Async Processing
 
-**Current Approach:** Synchronous HTTP request/response
-- Client waits for assignment to complete (~15ms)
-- Simple, immediate feedback
-- Works well for interactive web applications
+Instead of synchronous HTTP, offload license assignments to background queue workers:
 
-**Alternative Approach:** Asynchronous background job processing
-- Offload license assignments to background queue workers
-- Return job ID immediately, poll for completion
-- Distribute load across multiple queue workers
-
-**Available Queue Systems:**
+**Available Options:**
 
 1. **Solid Queue** (Rails 8 default, already installed)
    - Database-backed job queue (uses PostgreSQL)
@@ -406,7 +426,7 @@ available_licenses = Subscription
    end
    ```
 
-**When to Use Background Jobs:**
+**When to use background jobs:**
 
 - **Solid Queue** when:
   - Need async processing but want to keep architecture simple
@@ -420,7 +440,7 @@ available_licenses = Subscription
   - Need advanced features (rate limiting, batching, scheduled jobs)
   - Can handle additional operational complexity (Redis monitoring, persistence)
 
-**Scaling Architecture Example (10k/sec target):**
+### Scaling Architecture Example (10k/sec target)
 
 ```
 Load Balancer
@@ -434,8 +454,9 @@ Load Balancer
                                                     [PostgreSQL]
 ```
 
-**Implementation Strategy:**
-1. Start with synchronous processing (current implementation)
+### Migration Strategy
+
+1. Start with synchronous processing + advisory locks (current implementation)
 2. If latency becomes issue: Add Solid Queue for async processing
 3. If throughput exceeds 1k/sec: Migrate to Sidekiq + Redis
 4. If lock contention detected: Migrate from advisory locks to FOR UPDATE SKIP LOCKED
