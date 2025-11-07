@@ -3,12 +3,19 @@ class AccountsController < ApplicationController
   before_action :set_account, only: [:show, :edit, :update, :destroy]
 
   def index
-    current_time = ActiveRecord::Base.connection.quote(Time.current)
+    # Use sanitize_sql_array for safer SQL construction
+    current_time = Time.current
     @accounts = Account.order(:name)
       .select('accounts.*')
       .select('(SELECT COUNT(*) FROM users WHERE users.account_id = accounts.id) as users_count')
-      .select("(SELECT COUNT(*) FROM subscriptions WHERE subscriptions.account_id = accounts.id AND subscriptions.expires_at > #{current_time}) as active_subscriptions_count")
-      .select("(SELECT COALESCE(SUM(number_of_licenses), 0) FROM subscriptions WHERE subscriptions.account_id = accounts.id AND subscriptions.expires_at > #{current_time}) as total_licenses")
+      .select(ActiveRecord::Base.sanitize_sql_array([
+        '(SELECT COUNT(*) FROM subscriptions WHERE subscriptions.account_id = accounts.id AND subscriptions.expires_at > ?) as active_subscriptions_count',
+        current_time
+      ]))
+      .select(ActiveRecord::Base.sanitize_sql_array([
+        '(SELECT COALESCE(SUM(number_of_licenses), 0) FROM subscriptions WHERE subscriptions.account_id = accounts.id AND subscriptions.expires_at > ?) as total_licenses',
+        current_time
+      ]))
       .select('(SELECT COUNT(*) FROM license_assignments WHERE license_assignments.account_id = accounts.id) as license_assignments_count')
   end
 

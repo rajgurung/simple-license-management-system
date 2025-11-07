@@ -2,6 +2,10 @@ class SubscriptionsController < ApplicationController
   before_action :require_admin
   before_action :set_account
 
+  # AUTHORIZATION NOTE: All admin users can access and manage subscriptions for any account.
+  # This is the intended business logic for this application. If account-level
+  # permissions are needed in the future, implement authorization checks in set_account.
+
   def index
     @subscriptions = @account.subscriptions.includes(:product).order(created_at: :desc)
   end
