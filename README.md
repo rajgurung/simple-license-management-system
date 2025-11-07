@@ -14,7 +14,6 @@ A Ruby on Rails application for managing software license assignments with Postg
 - [Tech Stack](#tech-stack)
 - [Local Development Setup](#local-development-setup)
 - [Environment Variables](#environment-variables)
-- [Railway Deployment](#railway-deployment)
 - [Architecture](#architecture)
   - [High-Level Architecture Flow](#high-level-architecture-flow)
   - [PostgreSQL Advisory Locks for Concurrency Control](#postgresql-advisory-locks-for-concurrency-control)
@@ -41,16 +40,15 @@ A Ruby on Rails application for managing software license assignments with Postg
 - Concurrency-safe operations using PostgreSQL advisory locks
 - Query-time expiration filtering (no background jobs)
 - Structured JSON logging for observability
-- Sentry error tracking integration
 
 ## Tech Stack
 
-- **Rails**: 8.0.2.1
+- **Rails**: 8.0.4
 - **Ruby**: 3.4.2
 - **Database**: PostgreSQL
 - **CSS**: Tailwind CSS
 - **Authentication**: Session-based with bcrypt
-- **Observability**: Sentry + Logflare (Railway integration)
+- **Observability**: Structured JSON logging
 
 ## Local Development Setup
 
@@ -105,44 +103,12 @@ ADMIN_EMAIL=admin@example.com
 # Database
 DATABASE_URL=postgresql://localhost/license_management_development
 
-# Observability (optional for local dev)
+# Observability (optional)
 SENTRY_DSN=https://your-sentry-dsn@sentry.io/project-id
-LOGFLARE_SOURCE_ID=auto-configured-by-railway
 
 # Rails
 RAILS_ENV=development
 ```
-
-## Railway Deployment
-
-### Setup
-
-1. Install Railway CLI or use the web dashboard
-2. Create a new project
-3. Add PostgreSQL database
-4. Set environment variables in Railway dashboard:
-   - `ADMIN_USERNAME`
-   - `ADMIN_PASSWORD`
-   - `ADMIN_EMAIL`
-   - `SENTRY_DSN` (optional)
-   - `RAILS_MASTER_KEY` (from config/master.key)
-
-5. Deploy:
-   ```bash
-   railway up
-   ```
-
-### Enable Logflare Integration
-
-1. Go to Railway Dashboard → Your Service → Integrations
-2. Click "Add Integration" → Select "Logflare"
-3. Logflare will auto-configure and start ingesting logs
-
-### Post-Deployment
-
-The `release` command in Procfile automatically runs:
-- `rails db:migrate` - Run pending migrations
-- `rails db:seed` - Create initial data (idempotent)
 
 ## Architecture
 
@@ -280,9 +246,6 @@ No background jobs required. Uses **query-time filtering** with scopes:
 ```ruby
 # Active subscriptions
 Subscription.active  # WHERE expires_at > NOW()
-
-# Grace period (24 hours)
-Subscription.in_grace_period
 
 # Assignments respect subscription expiration
 LicenseAssignment.active  # Joins to subscription, filters expired
@@ -502,24 +465,12 @@ All logs output JSON to STDOUT:
 }
 ```
 
-### Sentry Integration
+### Optional Integrations
 
-Automatic error tracking and performance monitoring when `SENTRY_DSN` is configured.
+The application supports optional third-party integrations for enhanced observability:
 
-### Logflare Queries
-
-Example queries in Logflare dashboard:
-
-```sql
--- Average assignment duration
-SELECT AVG(CAST(metadata->>'duration_ms' AS INTEGER))
-FROM logs WHERE event = 'assign_finish'
-
--- Capacity errors by product
-SELECT metadata->>'product_id', COUNT(*)
-FROM logs WHERE event = 'assign_error'
-GROUP BY metadata->>'product_id'
-```
+- **Sentry**: Automatic error tracking and performance monitoring when `SENTRY_DSN` is configured
+- **Logflare**: Log aggregation and querying (requires additional setup)
 
 ## License
 
