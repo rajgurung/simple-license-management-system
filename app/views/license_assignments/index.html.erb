@@ -1,0 +1,89 @@
+<div class="container mx-auto px-4 py-8">
+  <div class="mb-6">
+    <%= link_to "← Back to Account", account_path(@account), class: "text-blue-600 hover:text-blue-800" %>
+  </div>
+
+  <h1 class="text-2xl font-bold text-gray-900 mb-2">Account: <%= @account.name %></h1>
+  <h2 class="text-xl text-gray-700 mb-6">Product: <%= @product.name %></h2>
+
+  <% unless @has_active_subscription %>
+    <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <h3 class="text-sm font-medium text-red-800">Subscription Expired</h3>
+          <div class="mt-2 text-sm text-red-700">
+            <p>All subscriptions for this product have expired. License assignments cannot be modified.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <%= form_with url: bulk_assign_account_product_license_assignments_path(@account, @product), method: :post, id: "assignment-form" do |f| %>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+      <!-- Left Column: Product License Info -->
+      <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold mb-4">Product Licenses</h3>
+        <div class="space-y-2">
+          <div class="flex justify-between">
+            <span class="text-gray-600">Total Licenses:</span>
+            <span class="font-bold"><%= @capacity[:total] %></span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-600">Used:</span>
+            <span class="font-bold"><%= @capacity[:used] %></span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-600">Available:</span>
+            <span class="font-bold text-green-600"><%= @capacity[:available] %></span>
+          </div>
+          <div class="mt-4 pt-4 border-t">
+            <p class="text-2xl font-bold text-center">
+              <%= @product.name %>
+              (<%= @capacity[:used] %>/<%= @capacity[:total] %>)
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Users -->
+      <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold mb-4">Users</h3>
+        <div class="space-y-2 max-h-96 overflow-y-auto">
+          <% @users.each do |user| %>
+            <div class="flex items-center">
+              <%= check_box_tag "user_ids[]", user.id, @assigned_user_ids.include?(user.id),
+                  class: "h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded",
+                  id: "user_#{user.id}" %>
+              <%= label_tag "user_#{user.id}", user.name, class: "ml-2 text-sm text-gray-700" %>
+              <% if @assigned_user_ids.include?(user.id) %>
+                <span class="ml-auto text-xs text-green-600 font-semibold">✓ Assigned</span>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <% if @has_active_subscription %>
+      <div class="flex justify-center gap-4">
+        <%= f.submit "Assign",
+            class: "bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded",
+            formaction: bulk_assign_account_product_license_assignments_path(@account, @product) %>
+        <%= f.submit "Unassign",
+            class: "bg-gray-500 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded",
+            formaction: bulk_unassign_account_product_license_assignments_path(@account, @product) %>
+      </div>
+    <% else %>
+      <div class="flex justify-center">
+        <p class="text-gray-500 italic">License management is disabled for expired subscriptions</p>
+      </div>
+    <% end %>
+  <% end %>
+</div>
