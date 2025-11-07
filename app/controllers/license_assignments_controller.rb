@@ -46,7 +46,10 @@ class LicenseAssignmentsController < ApplicationController
 
     result = service.call
 
-    if result[:outcome] == 'no_capacity'
+    if result[:outcome] == 'already_assigned'
+      redirect_to account_product_license_assignments_path(@account, @product),
+                  notice: "All requested users already have licenses assigned"
+    elsif result[:outcome] == 'no_capacity'
       redirect_to account_product_license_assignments_path(@account, @product),
                   alert: "No capacity available"
     elsif result[:outcome] == 'partial'

@@ -208,7 +208,9 @@ module Assignments
     end
 
     def determine_outcome(requested, assigned, available)
-      if assigned == 0
+      if requested == 0 && assigned == 0
+        'already_assigned'
+      elsif assigned == 0
         'no_capacity'
       elsif assigned < requested
         'partial'
