@@ -117,6 +117,8 @@ RAILS_ENV=development
 
 ## Architecture
 
+> 📖 **For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md)**
+
 ### High-Level Architecture Flow
 
 The application follows a layered architecture pattern for clean separation of concerns:
